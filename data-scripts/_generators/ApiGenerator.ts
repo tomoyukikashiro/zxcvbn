@@ -1,49 +1,38 @@
 import axios from 'axios'
+import BasicGenerator, {
+  defaultOptions,
+  DefaultOptions,
+} from './BasicGenerator'
 
-type Options = {
+interface ApiGeneratorOptions extends DefaultOptions {
   requestConfig?: object
   mapFunction: Function
   hasOccurrences: boolean
   minOccurrences: number
-  trimWhitespaces: boolean
-  toLowerCase: boolean
-  minLength: number
 }
 
-const defaultOptions: Options = {
+const apiGeneratorOptions: ApiGeneratorOptions = {
+  ...defaultOptions,
   mapFunction: (entry: any) => entry,
-  trimWhitespaces: true,
-  toLowerCase: true,
-  minLength: 2,
   hasOccurrences: false,
   minOccurrences: 500,
 }
 
-export default class ApiGenerator {
-  public data: any[] = []
+export default class ApiGenerator extends BasicGenerator {
+  readonly url: string
 
-  private readonly url: string
+  options: ApiGeneratorOptions
 
-  private readonly options: Options
-
-  constructor(url: string, options: any) {
+  constructor(url: string, options: ApiGeneratorOptions) {
+    super(options)
     this.url = url
-    this.options = { ...defaultOptions }
+    this.options = { ...apiGeneratorOptions }
     Object.assign(this.options, options)
   }
 
-  private async getData() {
+  async getData() {
     const result = await axios.get(this.url, { ...this.options.requestConfig })
     return result.data
-  }
-
-  private filterMinLength() {
-    if (this.options.minLength) {
-      console.info('Filtering password that are to short')
-      this.data = this.data.filter((item) => {
-        return item.length >= this.options.minLength
-      })
-    }
   }
 
   private filterOccurrences() {
@@ -54,22 +43,6 @@ export default class ApiGenerator {
           return entry.occurrences >= this.options.minOccurrences
         })
         .map((entry) => entry.name)
-    }
-  }
-
-  private trimWhitespaces() {
-    if (this.options.trimWhitespaces) {
-      console.info('Filtering whitespaces')
-      this.data = this.data.map((l) => {
-        return l.trim()
-      })
-    }
-  }
-
-  private convertToLowerCase() {
-    if (this.options.toLowerCase) {
-      console.info('Converting to lowercase')
-      this.data = this.data.map((l) => l.toLowerCase())
     }
   }
 

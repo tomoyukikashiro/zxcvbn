@@ -1,8 +1,12 @@
 import axios from 'axios'
 import XLSX from 'xlsx'
 import { promises as fs } from 'fs'
+import BasicGenerator, {
+  DefaultOptions,
+  defaultOptions,
+} from './BasicGenerator'
 
-export type Options = {
+export interface ExcelGeneratorOptions extends DefaultOptions {
   url: string
   /**
    * Row + column indicate a cell coordinate, and will include all cells
@@ -10,9 +14,6 @@ export type Options = {
    */
   row: number
   column: number
-  trimWhitespaces?: boolean
-  toLowerCase?: boolean
-  removeDuplicates?: boolean
   sheetName?: string
   /**
    * The occurences count should be the cell after (right side) of the name.
@@ -21,56 +22,37 @@ export type Options = {
   minOccurrences?: number
 }
 
-const defaultOptions: Options = {
+const excelGeneratorOptions: ExcelGeneratorOptions = {
+  ...defaultOptions,
   url: '',
   row: 1,
   column: 1,
-  trimWhitespaces: true,
-  toLowerCase: true,
-  removeDuplicates: true,
 }
 
-export class ExcelGenerator {
-  public options: Options
+export default class ExcelGenerator extends BasicGenerator {
+  readonly url: string
 
-  values: string[] = []
+  options: ExcelGeneratorOptions
 
-  constructor(options: Options) {
-    this.options = { ...defaultOptions }
+  constructor(url: string, options: ExcelGeneratorOptions) {
+    super(options)
+    this.url = url
+    this.options = { ...excelGeneratorOptions }
     Object.assign(this.options, options)
   }
 
-  private trimWhitespaces() {
-    if (this.options.trimWhitespaces) {
-      console.info('Filtering whitespaces')
-      this.values = this.values.map((l) => l.trim())
-    }
-  }
-
-  private convertToLowerCase() {
-    if (this.options.toLowerCase) {
-      console.info('Converting to lowercase')
-      this.values = this.values.map((l) => l.toLowerCase())
-    }
-  }
-
-  private removeDuplicates() {
-    if (this.options.removeDuplicates) {
-      console.info('Filtering duplicates')
-      this.values = this.values.filter((item, pos) => {
-        return this.values.indexOf(item) === pos
-      })
-    }
-  }
-
-  // eslint-disable-next-line complexity,max-statements
-  public async run(output: string) {
+  async getData() {
     // Download the file
     console.info('Fetching excel file')
     const response = await axios.get(this.options.url, {
       responseType: 'arraybuffer',
     })
-    const data = new Uint8Array(response.data)
+    return response.data
+  }
+
+  // eslint-disable-next-line complexity,max-statements
+  public async run(output: string) {
+    const data = new Uint8Array(await this.getData())
 
     console.info('Parsing file')
     const workbook = XLSX.read(data, { type: 'array' })
@@ -122,7 +104,7 @@ export class ExcelGenerator {
           continue
         }
       }
-      this.values.push(value)
+      this.data.push(value)
     }
 
     this.trimWhitespaces()
@@ -131,7 +113,7 @@ export class ExcelGenerator {
 
     console.info('Saving to disk')
 
-    const json = JSON.stringify(this.values)
+    const json = JSON.stringify(this.data)
     await fs.writeFile(`${output}.json`, json)
   }
 }
